@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tokyo Chess Classes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="login-view" class="login-screen">
+        <form id="login-form" class="login-panel">
+          <p class="section-label">Private Dashboard</p>
+          <h1>Tokyo Chess Classes</h1>
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" required />
+          <button type="submit">Unlock</button>
+          <p id="login-error" class="error-text" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section id="dashboard-view" class="dashboard hidden">
+        <header class="app-header">
+          <div>
+            <h1>Tokyo Chess Classes</h1>
+          </div>
+          <div class="header-actions">
+            <button id="export-backup-btn" class="secondary-button" type="button">
+              Export Backup
+            </button>
+            <button id="import-backup-btn" class="secondary-button" type="button">
+              Import Backup
+            </button>
+            <button id="logout-btn" class="secondary-button" type="button">
+              Log Out
+            </button>
+          </div>
+        </header>
+        <input id="import-backup-input" type="file" accept="application/json,.json" class="hidden" />
+        <p id="backup-status" class="status-text backup-status" aria-live="polite"></p>
+
+        <nav class="tabs" aria-label="Dashboard sections">
+          <button class="tab-button active" type="button" data-tab="overview-tab">
+            Overview
+          </button>
+          <button class="tab-button" type="button" data-tab="students-tab">
+            Students
+          </button>
+          <button class="tab-button" type="button" data-tab="batches-tab">
+            Batches
+          </button>
+          <button class="tab-button" type="button" data-tab="attendance-tab">
+            Attendance
+          </button>
+          <button class="tab-button" type="button" data-tab="payments-tab">
+            Payments
+          </button>
+          <button class="tab-button" type="button" data-tab="finance-tab">
+            Finance
+          </button>
+        </nav>
+
+        <section id="overview-tab" class="tab-panel">
+          <section class="stats-grid" id="stats-grid"></section>
+
+          <section class="overview-grid">
+            <article class="workspace">
+              <div class="section-header">
+                <div>
+                  <p class="section-label">Analytics</p>
+                  <h2>Quick summary</h2>
+                </div>
+              </div>
+              <div id="analytics-list" class="analytics-list"></div>
+            </article>
+          </section>
+        </section>
+
+        <section id="students-tab" class="tab-panel hidden">
+          <div class="split-layout">
+            <article class="workspace workspace-wide">
+              <div class="section-header">
+                <div>
+                  <p class="section-label">Students</p>
+                  <h2>Student details</h2>
+                </div>
+                <button id="add-student-btn" type="button">Add Student</button>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th><button class="sort-button" type="button" data-sort="name">Name</button></th>
+                      <th><button class="sort-button" type="button" data-sort="age">Age</button></th>
+                      <th><button class="sort-button" type="button" data-sort="joiningDate">Joining Date</button></th>
+                      <th><button class="sort-button" type="button" data-sort="parentName">Parent</button></th>
+                      <th><button class="sort-button" type="button" data-sort="phone">Phone</button></th>
+                      <th><button class="sort-button" type="button" data-sort="batchName">Batch</button></th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="student-table-body"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="workspace">
+              <div class="section-header">
+                <div>
+                  <p class="section-label">Student Form</p>
+                  <h2 id="student-form-title">Add student</h2>
+                </div>
+                <button id="delete-student-btn" class="danger-button hidden" type="button">
+                  Delete
+                </button>
+              </div>
+
+              <form id="student-form" class="stack-form">
+                <input type="hidden" id="student-id" />
+
+                <label for="student-name">Student Name</label>
+                <input id="student-name" required />
+
+                <div class="form-split">
+                  <div>
+                    <label for="student-age">Age</label>
+                    <input id="student-age" type="number" min="3" max="99" required />
+                  </div>
+                  <div>
+                    <label for="joining-date">Date of Joining</label>
+                    <input id="joining-date" type="date" required />
+                  </div>
+                </div>
+
+                <label for="parent-name">Parent Name</label>
+                <input id="parent-name" required />
+
+                <label for="student-phone">Phone Number</label>
+                <input id="student-phone" required />
+
+                <label for="student-batch">Batch</label>
+                <select id="student-batch" required></select>
+
+                <div class="form-actions">
+                  <button type="submit">Save Student</button>
+                  <button id="clear-student-form-btn" class="secondary-button" type="button">
+                    Clear
+                  </button>
+                </div>
+                <p id="student-form-status" class="status-text" aria-live="polite"></p>
+              </form>
+            </article>
+          </div>
+        </section>
+
+        <section id="batches-tab" class="tab-panel hidden">
+          <div class="split-layout">
+            <article class="workspace workspace-wide">
+              <div class="section-header">
+                <div>
+                  <p class="section-label">Batches</p>
+                  <h2>Batch details</h2>
+                </div>
+                <button id="add-batch-btn" type="button">Add Batch</button>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Batch Name</th>
+                      <th>Start Date</th>
+                      <th>Location</th>
+                      <th>Schedule</th>
+                      <th>Students</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="batch-table-body"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="workspace">
+              <div class="section-header">
+                <div>
+                  <p class="section-label">Batch Form</p>
+                  <h2 id="batch-form-title">Add batch</h2>
+                </div>
+                <button id="delete-batch-btn" class="danger-button hidden" type="button">
+                  Delete
+                </button>
+              </div>
+
+              <form id="batch-form" class="stack-form">
+                <input type="hidden" id="batch-id" />
+
+                <label for="batch-name">Batch Name</label>
+                <input id="batch-name" required />
+
+                <label for="batch-start-date">Batch Start Date</label>
+                <input id="batch-start-date" type="date" required />
+
+                <label for="batch-location">Location</label>
+                <input id="batch-location" placeholder="Example: Funabori" />
+
+                <label for="batch-schedule">Schedule</label>
+                <input id="batch-schedule" placeholder="Example: Saturday 10:00" />
+
+                <div class="form-actions">
+                  <button type="submit">Save Batch</button>
+                  <button id="clear-batch-form-btn" class="secondary-button" type="button">
+                    Clear
+                  </button>
+                </div>
+                <p id="batch-form-status" class="status-text" aria-live="polite"></p>
+              </form>
+            </article>
+          </div>
+
+          <article class="workspace schedule-workspace">
+            <div class="section-header">
+              <div>
+                <p class="section-label">Monthly Class Dates</p>
+                <h2>Set class dates by batch</h2>
+              </div>
+              <div class="month-control">
+                <label for="schedule-month">Month</label>
+                <input id="schedule-month" type="month" value="2026-05" />
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="schedule-table">
+                <thead>
+                  <tr>
+                    <th>Batch</th>
+                    <th>Class 1</th>
+                    <th>Class 2</th>
+                    <th>Class 3</th>
+                    <th>Class 4</th>
+                    <th>Class 5</th>
+                  </tr>
+                </thead>
+                <tbody id="schedule-table-body"></tbody>
+              </table>
+            </div>
+            <p id="schedule-status" class="status-text" aria-live="polite"></p>
+          </article>
+        </section>
+
+        <section id="attendance-tab" class="tab-panel hidden">
+          <article class="workspace">
+            <div class="section-header">
+              <div>
+                <p class="section-label">Attendance</p>
+                <h2>Mark attendance by class date</h2>
+              </div>
+              <div class="attendance-controls">
+                <div class="month-control">
+                  <label for="attendance-month">Month</label>
+                  <input id="attendance-month" type="month" value="2026-05" />
+                </div>
+                <div class="month-control">
+                  <label for="attendance-batch">Batch</label>
+                  <select id="attendance-batch"></select>
+                </div>
+              </div>
+            </div>
+
+            <div id="attendance-board" class="attendance-board"></div>
+            <p id="attendance-status" class="status-text" aria-live="polite"></p>
+          </article>
+        </section>
+
+        <section id="payments-tab" class="tab-panel hidden">
+          <article class="workspace">
+            <div class="section-header">
+              <div>
+                <p class="section-label">Monthly Payments</p>
+                <h2>Student-wise payment balance</h2>
+              </div>
+              <div class="month-control">
+                <label for="payment-month">Month</label>
+                <input id="payment-month" type="month" value="2026-05" />
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="payments-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Batch</th>
+                    <th>Previous Balance</th>
+                    <th>Payment Received</th>
+                    <th>Paid</th>
+                    <th>Payment Date</th>
+                    <th>Classes</th>
+                    <th>Amount Charged</th>
+                    <th>Remaining Balance</th>
+                  </tr>
+                </thead>
+                <tbody id="payment-table-body"></tbody>
+              </table>
+            </div>
+            <div class="form-actions month-actions">
+              <button id="complete-month-btn" type="button">Month Completed</button>
+            </div>
+            <p id="payment-status" class="status-text" aria-live="polite"></p>
+          </article>
+        </section>
+
+        <section id="finance-tab" class="tab-panel hidden">
+          <section class="stats-grid finance-stats-grid" id="finance-stats-grid"></section>
+
+          <section class="finance-grid">
+            <article class="workspace">
+              <div class="section-header">
+                <div>
+                  <p class="section-label">Finance</p>
+                  <h2>Monthly attendance revenue</h2>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="finance-table">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th>Total Received</th>
+                      <th>Charged Students</th>
+                    </tr>
+                  </thead>
+                  <tbody id="monthly-finance-table-body"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="workspace">
+              <div class="section-header">
+                <div>
+                  <p class="section-label">Finance</p>
+                  <h2>Student revenue till now</h2>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="finance-table">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Batch</th>
+                      <th>Total Received</th>
+                      <th>Months</th>
+                    </tr>
+                  </thead>
+                  <tbody id="student-finance-table-body"></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <article class="workspace">
+            <div class="section-header">
+              <div>
+                <p class="section-label">Finance</p>
+                <h2>Student payments by month</h2>
+              </div>
+              <div class="month-control">
+                <label for="finance-month">Month</label>
+                <input id="finance-month" type="month" value="2026-05" />
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="finance-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Batch</th>
+                    <th>Attendance Revenue</th>
+                    <th>Paid</th>
+                    <th>Payment Date</th>
+                    <th>Remaining Balance</th>
+                  </tr>
+                </thead>
+                <tbody id="monthly-student-finance-table-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

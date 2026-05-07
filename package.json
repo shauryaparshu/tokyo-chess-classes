@@ -1,0 +1,11 @@
+{
+  "name": "tokyo-chess-classes",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "check": "node --check app.js"
+  },
+  "dependencies": {
+    "postgres": "^3.4.7"
+  }
+}
