@@ -128,6 +128,9 @@ const addStudentBtn = document.getElementById("add-student-btn");
 const clearStudentFormBtn = document.getElementById("clear-student-form-btn");
 const deleteStudentBtn = document.getElementById("delete-student-btn");
 const studentBatchSelect = document.getElementById("student-batch");
+const studentStatusSelect = document.getElementById("student-status");
+const inactiveFromInput = document.getElementById("inactive-from");
+const inactiveFromWrap = document.getElementById("inactive-from-wrap");
 
 const batchForm = document.getElementById("batch-form");
 const batchFormTitle = document.getElementById("batch-form-title");
@@ -228,11 +231,54 @@ function normalizeClassStatus(status, dateValue) {
   return inferClassStatusFromDate(dateValue);
 }
 
+function getMonthFromDate(value) {
+  return value ? value.slice(0, 7) : "";
+}
+
+function isStudentInactive(student) {
+  return student.status === "inactive" && Boolean(student.inactiveFrom);
+}
+
+function isStudentActiveOnDate(student, classDate) {
+  return !isStudentInactive(student) || classDate < student.inactiveFrom;
+}
+
 function isStudentEligibleForDate(student, classDate) {
-  return Boolean(classDate && student.joiningDate && student.joiningDate <= classDate);
+  return Boolean(
+    classDate &&
+    student.joiningDate &&
+    student.joiningDate <= classDate &&
+    isStudentActiveOnDate(student, classDate)
+  );
+}
+
+function studentHasMonthHistory(student, data, month) {
+  const payment = getPaymentRecord(data, student.id, month);
+  if (
+    payment.previousBalance !== 0 ||
+    payment.paymentReceived !== 0 ||
+    payment.paid ||
+    payment.paymentDate
+  ) {
+    return true;
+  }
+
+  return data.attendanceRecords.some(
+    (record) => record.studentId === student.id && record.month === month
+  );
+}
+
+function isStudentVisibleInMonth(student, data, month) {
+  const schedule = getClassSchedule(data, student.batchId, month);
+  if (schedule.dates.some((classDate) => isStudentEligibleForDate(student, classDate))) {
+    return true;
+  }
+
+  return studentHasMonthHistory(student, data, month);
 }
 
 function normalizeStudent(student, batches) {
+  const status = student.status === "inactive" ? "inactive" : "active";
   return {
     id: student.id || crypto.randomUUID(),
     name: student.name || "",
@@ -241,6 +287,8 @@ function normalizeStudent(student, batches) {
     parentName: student.parentName || "",
     phone: student.phone || "",
     batchId: student.batchId || batches[0]?.id || "",
+    status,
+    inactiveFrom: status === "inactive" ? (student.inactiveFrom || "") : "",
     attendance: Array.isArray(student.attendance)
       ? [...student.attendance, "A", "A", "A", "A", "A"].slice(0, 5)
       : ["A", "A", "A", "A", "A"],
@@ -680,6 +728,10 @@ function getClassStatusForDate(data, batchId, month, classDate) {
   return getClassStatusForSlot(schedule, slotIndex);
 }
 
+function isAttendanceOpenForDate(classStatus, classDate) {
+  return classStatus !== "cancelled" && Boolean(classDate) && classDate <= getTodayIso();
+}
+
 function getSessionsAttended(student, data, month) {
   const schedule = getClassSchedule(data, student.batchId, month);
   return schedule.dates.filter((classDate) => {
@@ -831,6 +883,8 @@ function getStudentSortValue(student, data, key) {
     parentName: student.parentName,
     phone: student.phone,
     batchName: batch?.name || "",
+    status: student.status,
+    inactiveFrom: student.inactiveFrom,
   };
 
   return values[key] ?? "";
@@ -867,7 +921,7 @@ function renderStudents(data) {
   if (data.students.length === 0) {
     studentTableBody.innerHTML = `
       <tr>
-        <td colspan="7" class="empty-cell">No students yet. Add your first student from the form.</td>
+        <td colspan="9" class="empty-cell">No students yet. Add your first student from the form.</td>
       </tr>
     `;
     return;
@@ -885,6 +939,8 @@ function renderStudents(data) {
           <td>${student.parentName}</td>
           <td>${student.phone}</td>
           <td><span class="batch-pill batch-color-${batchColorIndex}">${batch?.name || "No batch"}</span></td>
+          <td><span class="status-pill status-${student.status}">${student.status === "inactive" ? "Inactive" : "Active"}</span></td>
+          <td>${formatDate(student.inactiveFrom)}</td>
           <td>
             <div class="table-actions">
               <button class="small-button edit-student-button" type="button" data-id="${student.id}">Edit</button>
@@ -1005,9 +1061,10 @@ function renderClassSchedules(data) {
 function renderStats(data) {
   const totalClassesTaken = getLifetimeClassesTaken(data);
   const totalAmountReceived = getAttendanceRevenueTotal(data);
+  const activeStudents = data.students.filter((student) => isStudentActiveOnDate(student, getTodayIso())).length;
 
   const stats = [
-    { label: "Students", value: data.students.length, note: "Active students" },
+    { label: "Students", value: activeStudents, note: "Active students" },
     { label: "Overall Classes Taken", value: totalClassesTaken, note: PROGRAM_START_LABEL },
     { label: "Total Amount Received", value: formatJPY(totalAmountReceived), note: "Attendance based" },
   ];
@@ -1027,17 +1084,18 @@ function renderStats(data) {
 
 function renderPayments(data) {
   const month = paymentMonth.value || "2026-05";
+  const visibleStudents = getSortedStudents(data).filter((student) => isStudentVisibleInMonth(student, data, month));
 
-  if (data.students.length === 0) {
+  if (visibleStudents.length === 0) {
     paymentTableBody.innerHTML = `
       <tr>
-        <td colspan="9" class="empty-cell">Add students before entering monthly payments.</td>
+        <td colspan="9" class="empty-cell">No active payment entries for ${month}.</td>
       </tr>
     `;
     return;
   }
 
-  paymentTableBody.innerHTML = getSortedStudents(data)
+  paymentTableBody.innerHTML = visibleStudents
     .map((student) => {
       const batch = findBatch(data, student.batchId);
       const batchColorIndex = getBatchColorIndex(data, student.batchId);
@@ -1146,6 +1204,7 @@ function renderFinance(data) {
     data.students.length === 0
       ? `<tr><td colspan="6" class="empty-cell">No students yet.</td></tr>`
       : getSortedStudents(data)
+          .filter((student) => isStudentVisibleInMonth(student, data, selectedMonth))
           .map((student) => {
             const batch = findBatch(data, student.batchId);
             const batchColorIndex = getBatchColorIndex(data, student.batchId);
@@ -1208,7 +1267,7 @@ function renderAttendance(data) {
           if (classStatus === "cancelled") {
             return `<span class="empty-date cancelled">${formatDate(classDate)} Cancelled</span>`;
           }
-          if (classStatus !== "completed") {
+          if (!isAttendanceOpenForDate(classStatus, classDate)) {
             return `<span class="empty-date scheduled">${formatDate(classDate)} Scheduled</span>`;
           }
           if (!isStudentEligibleForDate(student, classDate)) {
@@ -1297,6 +1356,15 @@ function renderDashboard() {
   ensureCurrentBackupSnapshot();
 }
 
+function updateStudentStatusFields() {
+  const isInactive = studentStatusSelect.value === "inactive";
+  inactiveFromWrap.classList.toggle("hidden", !isInactive);
+  inactiveFromInput.required = isInactive;
+  if (!isInactive) {
+    inactiveFromInput.value = "";
+  }
+}
+
 function showTab(tabId) {
   for (const panel of tabPanels) {
     panel.classList.toggle("hidden", panel.id !== tabId);
@@ -1321,6 +1389,8 @@ function clearStudentForm() {
   studentFormTitle.textContent = "Add student";
   deleteStudentBtn.classList.add("hidden");
   studentFormStatus.textContent = "";
+  studentStatusSelect.value = "active";
+  updateStudentStatusFields();
   const data = loadData();
   if (data.batches[0]) {
     studentBatchSelect.value = data.batches[0].id;
@@ -1350,9 +1420,15 @@ function populateStudentForm(studentId) {
   document.getElementById("parent-name").value = student.parentName;
   document.getElementById("student-phone").value = student.phone;
   studentBatchSelect.value = student.batchId;
+  studentStatusSelect.value = student.status || "active";
+  inactiveFromInput.value = student.inactiveFrom || "";
+  updateStudentStatusFields();
   studentFormTitle.textContent = `Edit ${student.name}`;
-  deleteStudentBtn.classList.remove("hidden");
-  studentFormStatus.textContent = `Editing ${student.name}`;
+  deleteStudentBtn.classList.toggle("hidden", student.status === "inactive");
+  studentFormStatus.textContent =
+    student.status === "inactive"
+      ? `Editing ${student.name}. This student is inactive from ${formatDate(student.inactiveFrom)}.`
+      : `Editing ${student.name}`;
 }
 
 function populateBatchForm(batchId) {
@@ -1373,19 +1449,33 @@ function populateBatchForm(batchId) {
   batchFormStatus.textContent = `Editing ${batch.name}`;
 }
 
-function deleteStudent(studentId) {
+function deactivateStudent(studentId) {
   const data = loadData();
   const student = data.students.find((entry) => entry.id === studentId);
-  if (!student || !window.confirm(`Delete ${student.name}?`)) {
+  if (
+    !student ||
+    student.status === "inactive" ||
+    !window.confirm(`Mark ${student.name} as inactive from today and keep all past history?`)
+  ) {
     return;
   }
 
+  const inactiveFrom = getTodayIso();
   saveData({
     ...data,
-    students: data.students.filter((entry) => entry.id !== studentId),
+    students: data.students.map((entry) =>
+      entry.id === studentId
+        ? normalizeStudent({
+            ...entry,
+            status: "inactive",
+            inactiveFrom,
+          }, data.batches)
+        : entry
+    ),
   });
-  clearStudentForm();
   renderDashboard();
+  populateStudentForm(studentId);
+  studentFormStatus.textContent = `${student.name} is inactive from ${formatDate(inactiveFrom)}. Past records are preserved.`;
 }
 
 function deleteBatch(batchId) {
@@ -1479,10 +1569,17 @@ function toggleAttendance(button) {
   const batchId = button.dataset.batchId;
   const classDate = button.dataset.date;
   const student = data.students.find((entry) => entry.id === studentId);
-  if (!student || !isStudentEligibleForDate(student, classDate)) {
+  const currentClassStatus = getClassStatusForDate(data, batchId, month, classDate);
+
+  if (
+    !student ||
+    !isStudentEligibleForDate(student, classDate) ||
+    !isAttendanceOpenForDate(currentClassStatus, classDate)
+  ) {
     attendanceStatus.textContent = "Attendance cannot be marked before the student's joining date.";
     return;
   }
+
   const currentStatus = getAttendanceStatus(data, studentId, batchId, month, classDate);
   const nextStatus = currentStatus === "P" ? "A" : "P";
   const attendanceRecords = data.attendanceRecords.filter(
@@ -1502,6 +1599,33 @@ function toggleAttendance(button) {
       normalizeAttendanceRecord({ studentId, batchId, month, classDate, status: nextStatus }),
     ],
   });
+
+  if (currentClassStatus === "scheduled" && classDate <= getTodayIso()) {
+    const currentSchedule = getClassSchedule(loadData(), batchId, month);
+    const slotIndex = currentSchedule.dates.findIndex((dateValue) => dateValue === classDate);
+    if (slotIndex >= 0) {
+      const updatedStatuses = [...currentSchedule.statuses];
+      updatedStatuses[slotIndex] = "completed";
+      const refreshedData = loadData();
+      const classSchedules = refreshedData.classSchedules.filter(
+        (schedule) => !(schedule.batchId === batchId && schedule.month === month)
+      );
+
+      saveData({
+        ...refreshedData,
+        classSchedules: [
+          ...classSchedules,
+          normalizeClassSchedule({
+            batchId,
+            month,
+            dates: currentSchedule.dates,
+            statuses: updatedStatuses,
+          }),
+        ],
+      });
+    }
+  }
+
   renderDashboard();
   attendanceStatus.textContent = "Attendance updated";
 }
@@ -1548,6 +1672,13 @@ function completeMonth() {
   for (const student of data.students) {
     const currentPayment = getPaymentRecord(data, student.id, month);
     const balance = getPaymentBalance(student, currentPayment, data, month);
+    const shouldCreateNextMonthPayment =
+      isStudentVisibleInMonth(student, data, nextMonth) || balance.remainingBalance !== 0;
+
+    if (!shouldCreateNextMonthPayment) {
+      continue;
+    }
+
     nextPayments.push(
       normalizePayment({
         studentId: student.id,
@@ -1664,6 +1795,7 @@ addBatchBtn.addEventListener("click", () => {
 
 clearStudentFormBtn.addEventListener("click", clearStudentForm);
 clearBatchFormBtn.addEventListener("click", clearBatchForm);
+studentStatusSelect.addEventListener("change", updateStudentStatusFields);
 scheduleMonth.addEventListener("change", () => syncMonthControls(scheduleMonth.value));
 attendanceMonth.addEventListener("change", () => syncMonthControls(attendanceMonth.value));
 attendanceBatchSelect.addEventListener("change", renderDashboard);
@@ -1674,7 +1806,7 @@ completeMonthBtn.addEventListener("click", completeMonth);
 deleteStudentBtn.addEventListener("click", () => {
   const studentId = document.getElementById("student-id").value;
   if (studentId) {
-    deleteStudent(studentId);
+    deactivateStudent(studentId);
   }
 });
 
@@ -1690,15 +1822,30 @@ studentForm.addEventListener("submit", (event) => {
   const data = loadData();
   const id = document.getElementById("student-id").value;
   const existingStudent = data.students.find((student) => student.id === id);
+  const status = studentStatusSelect.value;
+  const inactiveFrom = inactiveFromInput.value;
+  const joiningDate = document.getElementById("joining-date").value;
+
+  if (status === "inactive" && !inactiveFrom) {
+    studentFormStatus.textContent = "Choose the inactive date for this student.";
+    return;
+  }
+
+  if (inactiveFrom && joiningDate && inactiveFrom < joiningDate) {
+    studentFormStatus.textContent = "Inactive date cannot be earlier than joining date.";
+    return;
+  }
 
   const record = {
     id: id || crypto.randomUUID(),
     name: document.getElementById("student-name").value.trim(),
     age: Number(document.getElementById("student-age").value),
-    joiningDate: document.getElementById("joining-date").value,
+    joiningDate,
     parentName: document.getElementById("parent-name").value.trim(),
     phone: document.getElementById("student-phone").value.trim(),
     batchId: studentBatchSelect.value,
+    status,
+    inactiveFrom: status === "inactive" ? inactiveFrom : "",
     attendance: existingStudent?.attendance || ["A", "A", "A", "A", "A"],
   };
 
@@ -1709,7 +1856,12 @@ studentForm.addEventListener("submit", (event) => {
   saveData({ ...data, students });
   renderDashboard();
   populateStudentForm(record.id);
-  studentFormStatus.textContent = id ? "Student updated" : "Student added";
+  studentFormStatus.textContent =
+    record.status === "inactive"
+      ? `${record.name} saved as inactive from ${formatDate(record.inactiveFrom)}. Past records stay in history.`
+      : id
+        ? "Student updated"
+        : "Student added";
 });
 
 batchForm.addEventListener("submit", (event) => {

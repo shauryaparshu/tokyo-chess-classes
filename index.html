@@ -103,6 +103,8 @@
                       <th><button class="sort-button" type="button" data-sort="parentName">Parent</button></th>
                       <th><button class="sort-button" type="button" data-sort="phone">Phone</button></th>
                       <th><button class="sort-button" type="button" data-sort="batchName">Batch</button></th>
+                      <th><button class="sort-button" type="button" data-sort="status">Status</button></th>
+                      <th><button class="sort-button" type="button" data-sort="inactiveFrom">Inactive From</button></th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -118,7 +120,7 @@
                   <h2 id="student-form-title">Add student</h2>
                 </div>
                 <button id="delete-student-btn" class="danger-button hidden" type="button">
-                  Delete
+                  Mark Inactive
                 </button>
               </div>
 
@@ -147,6 +149,20 @@
 
                 <label for="student-batch">Batch</label>
                 <select id="student-batch" required></select>
+
+                <div class="form-split">
+                  <div>
+                    <label for="student-status">Status</label>
+                    <select id="student-status" required>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                  <div id="inactive-from-wrap">
+                    <label for="inactive-from">Inactive From</label>
+                    <input id="inactive-from" type="date" />
+                  </div>
+                </div>
 
                 <div class="form-actions">
                   <button type="submit">Save Student</button>

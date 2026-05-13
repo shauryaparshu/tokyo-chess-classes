@@ -348,6 +348,27 @@ tbody tr:hover {
   white-space: nowrap;
 }
 
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-active {
+  background: #dff5e8;
+  color: #175c37;
+}
+
+.status-inactive {
+  background: #ffe0dd;
+  color: #9f2419;
+}
+
 .batch-color-0 {
   background: var(--surface-soft);
   color: var(--muted);
