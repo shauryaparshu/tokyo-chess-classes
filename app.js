@@ -970,7 +970,9 @@ function renderBatches(data) {
 
   batchTableBody.innerHTML = data.batches
     .map((batch) => {
-      const studentCount = data.students.filter((student) => student.batchId === batch.id).length;
+      const studentCount = data.students.filter((student) => {
+        return student.batchId === batch.id && isStudentActiveOnDate(student, getTodayIso());
+      }).length;
       return `
         <tr>
           <td><strong>${batch.name}</strong></td>
